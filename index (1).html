@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#17365d">
+<title>Flota Auto</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f1f4f8;color:#202b3c}
+header{background:#17365d;color:white;padding:22px 16px}
+header h1{margin:0;font-size:25px}
+header p{margin:7px 0 0;font-size:13px}
+main{max-width:700px;margin:auto;padding:14px}
+.card{background:white;padding:16px;border-radius:12px;margin-bottom:14px;box-shadow:0 2px 8px #0001}
+h2{font-size:19px;margin:0 0 14px}
+input,select,textarea,button{width:100%;padding:12px;margin:6px 0;border-radius:8px;border:1px solid #ccd3dd;font-size:15px}
+button{background:#17365d;color:white;border:0;font-weight:bold;cursor:pointer}
+button.secondary{background:#e6edf5;color:#17365d}
+button.danger{background:#b83232}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vehicle{border:1px solid #dce2ea;border-radius:9px;padding:12px;margin:10px 0;overflow-wrap:anywhere}
+.vehicle h3{margin:0 0 7px}
+.small{font-size:13px;color:#667085}
+.status{padding:5px 8px;border-radius:6px;font-size:12px;display:inline-block;margin:3px}
+.green{background:#d8f5df;color:#176b32}
+.orange{background:#fff0c7;color:#8b5a00}
+.red{background:#ffdddd;color:#a32121}
+footer{text-align:center;color:#778;margin:20px;font-size:12px}
+a{overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<header>
+<h1>🚗 FLOTA AUTO</h1>
+<p>Evidența și administrarea autovehiculelor</p>
+</header>
+<main>
+<div class="card">
+<h2>📊 Situația flotei</h2>
+<div class="grid">
+<div>Autovehicule: <b id="total">0</b></div>
+<div>Avertizări: <b id="alerts">0</b></div>
+</div>
+<button class="secondary" onclick="exportData()">⬇ Salvează copia de siguranță</button>
+<label class="small">Restaurare copie de siguranță:</label>
+<input type="file" accept=".json" onchange="importData(event)">
+</div>
+
+<div class="card">
+<h2>➕ Adaugă autovehicul</h2>
+<input id="plate" placeholder="Număr înmatriculare *">
+<input id="brand" placeholder="Marca">
+<input id="model" placeholder="Model">
+<div class="grid">
+<input id="year" placeholder="An fabricație" type="number">
+<input id="vin" placeholder="Serie șasiu VIN">
+</div>
+<textarea id="notes" placeholder="Observații"></textarea>
+<button onclick="addVehicle()">Salvează autovehicul</button>
+</div>
+
+<div class="card">
+<h2>📋 Autovehiculele mele</h2>
+<div id="vehicles">Nu există autovehicule introduse.</div>
+</div>
+
+<div class="card">
+<h2>📅 Documente și expirări</h2>
+<select id="docVehicle"></select>
+<select id="docType">
+<option>RCA</option><option>ITP</option><option>Rovinietă</option>
+<option>Revizie tehnică</option><option>Asigurare CASCO</option><option>Altele</option>
+</select>
+<label>Data expirării:</label>
+<input type="date" id="expiry">
+<label>Document scanat sau fotografie:</label>
+<input type="file" id="attachment" accept="image/*,.pdf">
+<p class="small">Pentru această versiune, fișierul atașat trebuie să aibă maximum 600 KB.</p>
+<button onclick="addDocument()">Salvează documentul</button>
+</div>
+
+<div class="card">
+<h2>⏰ Avertizări și documente</h2>
+<div id="documents">Nu există documente.</div>
+</div>
+</main>
+<footer>FLOTA AUTO – Administrare autovehicule</footer>
+
+<script>
+let vehicles = JSON.parse(localStorage.getItem("fleetVehicles") || "[]");
+let documents = JSON.parse(localStorage.getItem("fleetDocuments") || "[]");
+
+function save(){
+ localStorage.setItem("fleetVehicles",JSON.stringify(vehicles));
+ localStorage.setItem("fleetDocuments",JSON.stringify(documents));
+ render();
+}
+function safe(s){
+ return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function addVehicle(){
+ let plate=document.getElementById("plate").value.trim();
+ if(!plate){alert("Introdu numărul de înmatriculare!");return}
+ vehicles.push({id:Date.now(),plate,brand:document.getElementById("brand").value,
+ model:document.getElementById("model").value,year:document.getElementById("year").value,
+ vin:document.getElementById("vin").value,notes:document.getElementById("notes").value});
+ ["plate","brand","model","year","vin","notes"].forEach(id=>document.getElementById(id).value="");
+ save(); alert("Autovehicul salvat!");
+}
+function editVehicle(id){
+ let v=vehicles.find(x=>x.id===id); if(!v)return;
+ let p=prompt("Număr înmatriculare:",v.plate); if(p===null)return; v.plate=p;
+ v.brand=prompt("Marca:",v.brand)||v.brand;
+ v.model=prompt("Model:",v.model)||v.model;
+ v.year=prompt("An fabricație:",v.year)||v.year;
+ v.vin=prompt("Serie VIN:",v.vin)||v.vin;
+ save();
+}
+function deleteVehicle(id){
+ if(!confirm("Ștergi acest autovehicul și documentele lui?"))return;
+ vehicles=vehicles.filter(v=>v.id!==id); documents=documents.filter(d=>d.vehicleId!==id); save();
+}
+function addDocument(){
+ let vehicleId=Number(document.getElementById("docVehicle").value);
+ let expiry=document.getElementById("expiry").value;
+ let type=document.getElementById("docType").value;
+ let file=document.getElementById("attachment").files[0];
+ if(!vehicleId){alert("Adaugă mai întâi un autovehicul!");return}
+ if(!expiry){alert("Selectează data expirării!");return}
+ function finish(fileData,fileName){
+  documents.push({id:Date.now(),vehicleId,type,expiry,fileData,fileName});
+  document.getElementById("expiry").value="";
+  document.getElementById("attachment").value="";
+  save(); alert("Document salvat!");
+ }
+ if(file){
+  if(file.size>600000){alert("Fișierul este prea mare. Alege un fișier sub 600 KB.");return}
+  let reader=new FileReader(); reader.onload=()=>finish(reader.result,file.name); reader.readAsDataURL(file);
+ }else finish(null,null);
+}
+function daysLeft(date){
+ let a=new Date(); a.setHours(0,0,0,0);
+ let b=new Date(date+"T00:00:00"); return Math.ceil((b-a)/86400000);
+}
+function render(){
+ document.getElementById("total").textContent=vehicles.length;
+ let alerts=0, html="";
+ vehicles.forEach(v=>{
+  let docs=documents.filter(d=>d.vehicleId===v.id);
+  html+=`<div class="vehicle"><h3>🚘 ${safe(v.plate)}</h3>
+  <p>${safe(v.brand)} ${safe(v.model)}</p>
+  <p class="small">An: ${safe(v.year)} | VIN: ${safe(v.vin)}</p>
+  <p class="small">${safe(v.notes)}</p><p class="small">Documente: ${docs.length}</p>
+  <div class="grid"><button class="secondary" onclick="editVehicle(${v.id})">Modifică</button>
+  <button class="danger" onclick="deleteVehicle(${v.id})">Șterge</button></div></div>`;
+ });
+ document.getElementById("vehicles").innerHTML=html||"Nu există autovehicule introduse.";
+ let options='<option value="">Selectează autovehiculul</option>';
+ vehicles.forEach(v=>options+=`<option value="${v.id}">${safe(v.plate)}</option>`);
+ document.getElementById("docVehicle").innerHTML=options;
+ let dh="";
+ documents.sort((a,b)=>a.expiry.localeCompare(b.expiry)).forEach(d=>{
+  let v=vehicles.find(x=>x.id===d.vehicleId); if(!v)return;
+  let days=daysLeft(d.expiry), cls=days<0?"red":days<=30?"orange":"green";
+  let label=days<0?"EXPIRAT":days<=30?"EXPIRĂ ÎN "+days+" ZILE":"ÎN TERMEN";
+  if(days<=30)alerts++;
+  dh+=`<div class="vehicle"><b>${safe(v.plate)} – ${safe(d.type)}</b><br>
+  <span class="status ${cls}">${label}</span><p class="small">Data expirării: ${d.expiry}</p>
+  ${d.fileData?`<a href="${d.fileData}" download="${safe(d.fileName||"document")}">Deschide documentul</a>`:""}
+  <button class="danger" onclick="deleteDocument(${d.id})">Șterge documentul</button></div>`;
+ });
+ document.getElementById("documents").innerHTML=dh||"Nu există documente.";
+ document.getElementById("alerts").textContent=alerts;
+}
+function deleteDocument(id){
+ if(!confirm("Ștergi documentul?"))return;
+ documents=documents.filter(d=>d.id!==id); save();
+}
+function exportData(){
+ let data=JSON.stringify({vehicles,documents});
+ let blob=new Blob([data],{type:"application/json"});
+ let url=URL.createObjectURL(blob), a=document.createElement("a");
+ a.href=url; a.download="flota-auto-backup.json"; a.click(); URL.revokeObjectURL(url);
+}
+function importData(event){
+ let file=event.target.files[0]; if(!file)return;
+ let reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   let data=JSON.parse(reader.result);
+   if(!Array.isArray(data.vehicles)||!Array.isArray(data.documents))throw 0;
+   if(!confirm("Restaurarea va înlocui datele existente. Continui?"))return;
+   vehicles=data.vehicles; documents=data.documents; save(); alert("Date restaurate!");
+  }catch(e){alert("Fișier de rezervă invalid!")}
+ };
+ reader.readAsText(file);
+}
+render();
+</script>
+</body>
+</html>
